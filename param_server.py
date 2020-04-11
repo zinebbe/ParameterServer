@@ -5,6 +5,7 @@ import os
 import random
 import sys
 import time
+import numpy as np
 from collections import OrderedDict
 from multiprocessing.managers import BaseManager
 
@@ -17,6 +18,12 @@ from torch.multiprocessing import Process as TorchProcess
 from torch.multiprocessing import Queue
 from torch.utils.data import DataLoader
 from torchvision import datasets
+
+from scipy.spatial import distance
+from sklearn.metrics.pairwise import rbf_kernel
+from scipy.sparse import csgraph
+from scipy import linalg, spatial
+
 
 parser = argparse.ArgumentParser()
 # 集群基本信息的配置 - The basic configuration of the cluster
@@ -50,7 +57,6 @@ def run(model, test_data, queue, param_q, stop_signal):
     workers = [int(v) for v in str(args.learners).split('-')]
     for _ in workers:
         param_q.put(_tmp)
-    print('Model Sent Finished!')
 
     print('Begin!')
 
@@ -102,7 +108,7 @@ def run(model, test_data, queue, param_q, stop_signal):
             iteration_in_epoch += 1
             epoch_train_loss += iteration_loss
             data_size_epoch += batch_size
-
+            
             for idx, param in enumerate(model.parameters()):
                 param.data -= torch.from_numpy(delta_ws[idx])
 
@@ -112,7 +118,7 @@ def run(model, test_data, queue, param_q, stop_signal):
             staleness += 1
             learner_staleness[rank_src] = staleness
             stale_stack.append(rank_src)
-
+            print("Staleness is: ", staleness, " Map is: ", learner_staleness)
             # judge if the staleness exceed the staleness threshold in SSP
             outOfStale = False
             for stale_each_worker in learner_staleness:
@@ -155,6 +161,8 @@ def run(model, test_data, queue, param_q, stop_signal):
                                   "\t" + str(e_epoch_time - s_time) +
                                   "\t" + str(epoch_count) +
                                   "\t" + str(test_acc) + '\n')
+                s = torch.sum(model.conv1.weight.data)
+                print(s)
                 f_trainloss.flush()
                 f_staleness.flush()
                 iteration_in_epoch = 0
@@ -186,7 +194,39 @@ def init_processes(rank, size, model, test_data, queue, param_q, stop_signal, fn
     dist.init_process_group(backend, rank=rank, world_size=size)
     fn(model, test_data, queue, param_q, stop_signal)
 
+def ComputeMatrix(training_dataset, random_size=1000):
+    # x_train, y_train = 
 
+    data_loader = DataLoader(training_dataset, batch_size=random_size, shuffle=True)
+
+    inputs, _ = next(iter(data_loader))
+    matrix_size = len(inputs)
+    Sim_Matrix = np.zeros((matrix_size, matrix_size))
+    
+    for i, val_i in enumerate(inputs):
+        print(i)
+        for j, val_j in enumerate(inputs):
+
+            #Several similarity distance functions... Used cosine similarity
+            t = 1 - spatial.distance.cosine(val_i[0].flatten(), val_j[0].flatten())
+            # t = distance.euclidean(val_i[0].flatten(), val_j[0].flatten())
+            # dist = np.linalg.norm(val_i[0].flatten()-val_j[0].flatten())
+            # t = np.exp(-dist**2/(2.*(sigma**2.)))
+            # print(t)
+            Sim_Matrix[i][j] = t
+
+    lap = (csgraph.laplacian(Sim_Matrix, normed=False))
+    val, vec = linalg.eigh(lap)
+    for i in range(len(val)):
+        print("Val: ", val[i])
+    
+    # similarity_matrix = [[0.0] for j in range(len(training_data))]
+    # pairwise_dists = squareform(pdist(training_data[0], 'euclidean'))
+    # K = scip.exp(-pairwise_dists ** 2 / s ** 2)
+    # print(K)
+    
+    
+    
 if __name__ == "__main__":
 
     # 随机数设置 - Random
@@ -197,10 +237,10 @@ if __name__ == "__main__":
     if args.model == 'MnistCNN':
         model = MnistCNN()
         train_t, test_t = get_data_transform('mnist')
-        test_dataset = datasets.MNIST(args.data_dir, train=False, download=True,
+        train_dataset = datasets.MNIST(args.data_dir, train=True, download=False,
+                                      transform=train_t)
+        test_dataset = datasets.MNIST(args.data_dir, train=False, download=False,
                                       transform=test_t)
-
-
     elif args.model == 'AlexNet':
         model = AlexNetForCIFAR()
         train_t, test_t = get_data_transform('cifar')
@@ -209,9 +249,11 @@ if __name__ == "__main__":
     else:
         print('Model must be {} or {}!'.format('MnistCNN', 'AlexNet'))
         sys.exit(-1)
-
+    
     test_data = DataLoader(test_dataset, batch_size=100, shuffle=True)
+    ComputeMatrix(train_dataset)
 
+    
     world_size = len(str(args.learners).split('-')) + 1
     this_rank = args.this_rank
 

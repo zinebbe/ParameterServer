@@ -4,10 +4,10 @@ import sys
 
 from torchvision import transforms
 
-def flatten(t):
+""" def flatten(t):
     t = t.reshape(1, -1)
     t = t.squeeze()
-    return t
+    return t """
 
 def get_data_transform(data: str):
     if data == 'mnist':
@@ -15,13 +15,13 @@ def get_data_transform(data: str):
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
-        train_transform = flatten(train_transform)
+        #train_transform = flatten(train_transform)
 
         test_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
-        test_transform = flatten(test_transform)
+        #test_transform = flatten(test_transform)
 
     elif data == 'cifar':
         train_transform = transforms.Compose([
