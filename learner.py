@@ -40,6 +40,8 @@ parser.add_argument('--test-bsz', type=int, default=100)
 parser.add_argument('--heterogeneity', type=float, default=1.0)
 parser.add_argument('--hetero-allocation', type=str, default='1.0-1.0')
 
+parser.add_argument('--slow', type=float, default=0.0)
+
 args = parser.parse_args()
 
 def unbalanced_partition_dataset(dataset, hetero):
@@ -72,9 +74,11 @@ def run(rank, model, train_data, test_data, queue, param_q, stop_flag):
 
 
     for epoch in range(int(args.epochs)):
+        
         model.train()
         epoch_train_loss = 0
         for batch_idx, (data, target) in enumerate(train_data):
+            time.sleep(args.slow)
             it_start = time.time()
             data, target = Variable(data), Variable(target)
             optimizer.zero_grad()
@@ -93,6 +97,7 @@ def run(rank, model, train_data, test_data, queue, param_q, stop_flag):
             try:  # 捕获异常，异常来源于ps进程的停止 - Capture the exception caused by the shutdown of parameter_server
 
                 if delta_ws:
+
                     queue.put({
                         rank: [[v.numpy() for v in delta_ws],loss.data.numpy(), np.array(args.batch_size), False]
                     })
@@ -124,6 +129,7 @@ def init_processes(rank, size, model,
     os.environ['MASTER_ADDR'] = args.ps_ip
     os.environ['MASTER_PORT'] = args.ps_port
     dist.init_process_group(backend, rank=rank, world_size=size)
+    print("addr: ", args.ps_ip, " Port: ", args.ps_port)
     fn(rank, model, train_dataset, test_dataset, q, param_q, stop_flag)
 
 
@@ -146,7 +152,7 @@ if __name__ == "__main__":
 
         train_transform, test_transform = get_data_transform('mnist')
 
-        train_dataset = datasets.MNIST(args.data_dir, train=True, download=True,
+        train_dataset = datasets.MNIST(args.data_dir, train=True, download=False,
                                        transform=train_transform)
         test_dataset = datasets.MNIST(args.data_dir, train=False, download=False,
                                       transform=test_transform)
@@ -172,8 +178,8 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     workers = [int(v) for v in str(args.learners).split('-')]
-    #train_data = partition_dataset(train_dataset, workers)
-    train_data = unbalanced_partition_dataset(train_dataset, args.hetero_allocation)
+    train_data = partition_dataset(train_dataset, workers)
+    # train_data = unbalanced_partition_dataset(train_dataset, args.hetero_allocation)
     test_data = partition_dataset(test_dataset, workers)
 
     this_rank = args.this_rank

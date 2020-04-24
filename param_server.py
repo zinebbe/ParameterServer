@@ -72,6 +72,11 @@ def run(model, test_data, queue, param_q, stop_signal):
     s_time = time.time()
     epoch_time = s_time
 
+    # Used to keep track of running average of an epoch from a workers
+    # e_epoch_time - s_time / count[rank_src] to compute the mean
+    count = {l: 0 for l in workers}
+
+    
     # In SSP, the fast workers have to wait the slowest worker a given duration
     # The fast worker exceeding the duration will be pushed into the queue to wait
     stale_stack = []
@@ -89,6 +94,8 @@ def run(model, test_data, queue, param_q, stop_signal):
         if not queue.empty():
             tmp_dict = queue.get()
             rank_src = list(tmp_dict.keys())[0]
+            count[rank_src] += 1
+
             isWorkerEnd = tmp_dict[rank_src][3]
             if isWorkerEnd:
                 print("Worker {} has completed all its data computation!".format(rank_src))
@@ -108,9 +115,12 @@ def run(model, test_data, queue, param_q, stop_signal):
             iteration_in_epoch += 1
             epoch_train_loss += iteration_loss
             data_size_epoch += batch_size
-            
+            # t = np.array(delta_ws)
+            # print(len(delta_ws[0]))
             for idx, param in enumerate(model.parameters()):
+                print(np.sum(delta_ws[idx]))
                 param.data -= torch.from_numpy(delta_ws[idx])
+                
 
             stale = int(staleness - learner_staleness[rank_src])
             staleness_sum_epoch += stale
@@ -162,7 +172,6 @@ def run(model, test_data, queue, param_q, stop_signal):
                                   "\t" + str(epoch_count) +
                                   "\t" + str(test_acc) + '\n')
                 s = torch.sum(model.conv1.weight.data)
-                print(s)
                 f_trainloss.flush()
                 f_staleness.flush()
                 iteration_in_epoch = 0
@@ -194,8 +203,8 @@ def init_processes(rank, size, model, test_data, queue, param_q, stop_signal, fn
     dist.init_process_group(backend, rank=rank, world_size=size)
     fn(model, test_data, queue, param_q, stop_signal)
 
-def ComputeMatrix(training_dataset, random_size=1000):
-    # x_train, y_train = 
+
+def ComputeLaplacian(training_dataset, random_size=1000):
 
     data_loader = DataLoader(training_dataset, batch_size=random_size, shuffle=True)
 
@@ -204,7 +213,6 @@ def ComputeMatrix(training_dataset, random_size=1000):
     Sim_Matrix = np.zeros((matrix_size, matrix_size))
     
     for i, val_i in enumerate(inputs):
-        print(i)
         for j, val_j in enumerate(inputs):
 
             #Several similarity distance functions... Used cosine similarity
@@ -251,7 +259,7 @@ if __name__ == "__main__":
         sys.exit(-1)
     
     test_data = DataLoader(test_dataset, batch_size=100, shuffle=True)
-    ComputeMatrix(train_dataset)
+    # ComputeLaplacian(train_dataset)
 
     
     world_size = len(str(args.learners).split('-')) + 1
