@@ -8,6 +8,15 @@ import time
 import numpy as np
 from collections import OrderedDict
 from multiprocessing.managers import BaseManager
+from gmm_mml import GmmMml
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+import numpy as np
+import torch
+
+from gmm import GaussianMixture
+from math import sqrt
 
 import torch
 import torch.distributed as dist
@@ -196,7 +205,6 @@ def run(model, test_data, queue, param_q, stop_signal):
             print('Time up: {}, Stop Now!'.format(e_time - s_time))
             break
 
-
 def init_processes(rank, size, model, test_data, queue, param_q, stop_signal, fn, backend='gloo'):
     os.environ['MASTER_ADDR'] = args.ps_ip
     os.environ['MASTER_PORT'] = args.ps_port
@@ -261,7 +269,10 @@ if __name__ == "__main__":
     test_data = DataLoader(test_dataset, batch_size=100, shuffle=True)
     # ComputeLaplacian(train_dataset)
 
-    
+    #GMM ----- 
+    #model = GaussianMixture(28, 28)
+    #model.fit(test_dataset.data)
+    #GMM end
     world_size = len(str(args.learners).split('-')) + 1
     this_rank = args.this_rank
 
