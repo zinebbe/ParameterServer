@@ -1,24 +1,47 @@
 # ParameterServer
-Parameter Server with bounded delay based on FALCON
-
-# Falcon
-> All the practice of Falcon is for project Griffin.
+Parameter Server with bounded delay is based on FALCON. The initisl code is available [here] (https://github.com/kimihe/Falcon/tree/master/SSP_Demo)
 
 A computation-parallel deep learning architecture.
 
-# Quick Start of SSP Demo
-The SSP demo is a part of Falcon, please find it in the directory `SSP_Demo` (all the demo files and related datasets are in this directory).
+# Quick Start
+To run the SSP with MnistCNN dataset:
 
-We hope this can help researchers to start their first distrtibuted DL training in SSP scheme via [PyTorch](https://pytorch.org/).
+* Start the Parameter Server specifing the number of learners to expect, here we will start one sever and 10 workers:
+```
+python param_server.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=0 --learners=1-2-3-4-5-6-7-8-9-10 --epochs=10 --model=MnistCNN --stale-threshold=0
+```
 
-The implementation guideline follows the papers as:
+* Start workers, here we will start 10 workers, each one is started individualy on a seperate terminal:
+```
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=1 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.2
 
-* Q. Ho, J. Cipar, H. Cui, J. K. Kim, S. Lee, P. B. Gibbons, G. A. Gibson, G. R. Ganger, and E. P. Xing, "[More effective distributed ml via a stale synchronous parallel parameter server](https://dl.acm.org/citation.cfm?id=2999748)," in *Proc. NIPS*, Lake Tahoe, Nevada, USA, 2013.
-* W. Zhang, S. Gupta, X. Lian, and J. Liu, "[Staleness-aware async-sgd for distributed deep learning](https://dl.acm.org/citation.cfm?id=3060832.3060950)," in *Proc. IJCAI*, New York, USA, 2016.
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=2 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.3
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=3 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.4
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=4 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.5
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=5 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.6
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=6 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.7
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=7 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.8
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=8 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=0.9
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=9 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=1
+
+python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --this-rank=10 --learners=1-2-3-4-5-6-7-8-9-10 --model=MnistCNN --epochs=10 --save-path=~/Data/Mnist/output --slow=1.2
+```
+
+* the key parameters to changes are in the command line are :
+1. learners : number of workers to start, each one should have a different rank if started Synchronosly
+2. model : dataset
+3. stale-threshold varies, in case of Sync Parameter Server, the value is 0, for Async Parameter Server the value is very big to ensure it is never reached
+4. slow: a delay that needs to be different from one worker to another in case of sync parameter server for example
+
 
 # Dataset
-Two classical datasets are supported: MNIST and CIFAR-10.
-
 * MNIST: This demo has already contained MNIST in the directory `data`, you can also download it from [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/)
 * CIFAR-10: You can download it from [https://www.cs.toronto.edu/~kriz/cifar.html](https://www.cs.toronto.edu/~kriz/cifar.html)
 
