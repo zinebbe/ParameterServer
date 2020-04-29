@@ -40,6 +40,12 @@ python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --th
 3. stale-threshold varies, in case of Sync Parameter Server, the value is 0, for Async Parameter Server the value is very big to ensure it is never reached
 4. slow: a delay that needs to be different from one worker to another in case of sync parameter server for example
 
+* Apply GMM to the MNIST dataset
+
+From mnist-em-bmm-gmm forlder, run the follwing:
+```
+python __main__.py --path="Your path to MNIST"
+```
 
 # Dataset
 * MNIST: This demo has already contained MNIST in the directory `data`, you can also download it from [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/)
