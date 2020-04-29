@@ -8,7 +8,6 @@ import time
 import numpy as np
 from collections import OrderedDict
 from multiprocessing.managers import BaseManager
-from gmm_mml import GmmMml
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split

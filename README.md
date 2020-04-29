@@ -40,7 +40,7 @@ python learner.py --ps-ip=127.0.0.1 --ps-port=29500 --data-dir=~/Data/Mnist --th
 * In the param_server.py file, change the "staleValue" global value. 
 * Because there were several methods we wanted to test, we have to change the code everything we would like to experiment with something.
 * For Spectral Clustering- Set staleValue to GenerateTopKEigenValues
-* For GMM, go to mnist-em-bmm-gmm folder and run python __main__.py --path="Path to MNIST" and it will output the average of the covariances. Set staleValue to the inverse of the average of the covariances
+* For GMM, go to mnist-em-bmm-gmm folder and run "python __main__.py --path="Path to MNIST"" and it will output the average of the covariances. Set staleValue to the inverse of the average of the covariances
 * For Epoch based, increment staleValue by however the user may want per epoch.
 * For weights based, set the staleValue by T X np.sum(delta_ws[0]) value. The can set the T value, but we noticed that T=100 worked the best. Another way you can do this is: you can look at sum the current weights in the particular layer. Find the delta of the first layer and change the Staleness value based on that after all the workers are done for one epoch.
 
