@@ -35,17 +35,17 @@ from scipy import linalg, spatial
 
 
 parser = argparse.ArgumentParser()
-# 集群基本信息的配置 - The basic configuration of the cluster
+# The basic configuration of the cluster
 parser.add_argument('--ps-ip', type=str, default='127.0.0.1')
 parser.add_argument('--ps-port', type=str, default='29500')
 parser.add_argument('--this-rank', type=int, default=0)
 parser.add_argument('--learners', type=str, default='1-2')
 
-# 模型与数据集的配置 - The configuration of model and dataset
+# The configuration of model and dataset
 parser.add_argument('--data-dir', type=str, default='../../data')
 parser.add_argument('--model', type=str, default='MnistCNN')
 
-# 训练时各种超参数的配置 - The configuration of different hyper-parameters for training
+# The configuration of different hyper-parameters for training
 parser.add_argument('--timeout', type=float, default=10000.0)
 parser.add_argument('--len-train-data', type=int, default=60000)
 parser.add_argument('--epochs', type=int, default=1)
@@ -53,6 +53,7 @@ parser.add_argument('--stale-threshold', type=int, default=1000)
 
 args = parser.parse_args()
 
+StaleValue = args.stale_threshold
 
 def run(model, test_data, queue, param_q, stop_signal):
     if args.model == 'MnistCNN':
@@ -60,7 +61,7 @@ def run(model, test_data, queue, param_q, stop_signal):
     else:
         criterion = torch.nn.NLLLoss()
 
-    # 参数中的tensor转成numpy - convert gradient tensor to numpy structure
+    # convert gradient tensor to numpy structure
     tmp = map(lambda item: (item[0], item[1].numpy()), model.state_dict().items())
     _tmp = OrderedDict(tmp)
     workers = [int(v) for v in str(args.learners).split('-')]
@@ -142,7 +143,7 @@ def run(model, test_data, queue, param_q, stop_signal):
             outOfStale = False
             for stale_each_worker in learner_staleness:
                 if (stale_each_worker not in stale_stack) & \
-                    (staleness - learner_staleness[stale_each_worker] > args.stale_threshold):
+                    (staleness - learner_staleness[stale_each_worker] > StaleValue):
                     outOfStale = True
                     break
             if not outOfStale:
@@ -212,7 +213,7 @@ def init_processes(rank, size, model, test_data, queue, param_q, stop_signal, fn
     fn(model, test_data, queue, param_q, stop_signal)
 
 
-def ComputeLaplacian(training_dataset, random_size=1000):
+def GenerateTopKEigenValues(training_dataset, random_size=1000, k = 10):
 
     data_loader = DataLoader(training_dataset, batch_size=random_size, shuffle=True)
 
@@ -232,20 +233,45 @@ def ComputeLaplacian(training_dataset, random_size=1000):
             Sim_Matrix[i][j] = t
 
     lap = (csgraph.laplacian(Sim_Matrix, normed=False))
-    val, vec = linalg.eigh(lap)
-    for i in range(len(val)):
-        print("Val: ", val[i])
+    EigenValue, EigenVector = linalg.eigh(lap)
+    return np.mean(EigenValue[:k])
+
+def SpectralClustering(training_dataset, testing_dataset, random_size=1000, k = 10):
+
+    data_loader = DataLoader(training_dataset, batch_size=random_size, shuffle=True)
+
+    inputs, _ = next(iter(data_loader))
+    matrix_size = len(inputs)
+    Sim_Matrix = np.zeros((matrix_size, matrix_size))
     
-    # similarity_matrix = [[0.0] for j in range(len(training_data))]
-    # pairwise_dists = squareform(pdist(training_data[0], 'euclidean'))
-    # K = scip.exp(-pairwise_dists ** 2 / s ** 2)
-    # print(K)
+    for i, val_i in enumerate(inputs):
+        for j, val_j in enumerate(inputs):
+
+            #Several similarity distance functions... Used cosine similarity
+            t = 1 - spatial.distance.cosine(val_i[0].flatten(), val_j[0].flatten())
+            Sim_Matrix[i][j] = t
+
+    lap = (csgraph.laplacian(Sim_Matrix, normed=False))
+    EigenValue, EigenVector = linalg.eigh(lap)
+    
+    best_score = -float(inf)
+    best_k = -1
+    best_kmeans = None
+    for i in k: 
+        kmeans = KMeans(n_cluster = i, random_state = 0).fit(EigenVector[:i])
+        s = kmeans.score(test_dataset)
+        if s > besst_score:
+            best_k = i
+            best_score = s
+            best_kmeans = kmeans
+    return best_score, best_k, best_kmeans
+    
     
     
     
 if __name__ == "__main__":
 
-    # 随机数设置 - Random
+    # Random
     manual_seed = random.randint(1, 10000)
     random.seed(manual_seed)
     torch.manual_seed(manual_seed)
@@ -291,9 +317,9 @@ if __name__ == "__main__":
     manager = MyManager(address=(args.ps_ip, 5000), authkey=b'queue')
     manager.start()
 
-    q = manager.get_queue()  # 更新参数使用的队列 - queue for parameter_server signal process
-    param_q = manager.get_param()  # 开始时传模型参数使用的队列 - init
-    stop_signal = manager.get_stop_signal()  # 传停止信号使用的队列 - stop
+    q = manager.get_queue()  # queue for parameter_server signal process
+    param_q = manager.get_param()  # init
+    stop_signal = manager.get_stop_signal()  # stop
 
     p = TorchProcess(target=init_processes, args=(this_rank, world_size, model,test_data,
                                                   q, param_q, stop_signal, run))
