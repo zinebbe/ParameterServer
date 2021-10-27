@@ -1,6 +1,6 @@
 backports.shutil-get-terminal-size==1.0.0
 cycler==0.10.0
-dask==0.9.0
+dask==2021.10.0
 decorator==4.0.9
 entrypoints==0.2.2
 ipykernel==4.3.1
